@@ -1,0 +1,15 @@
+{
+    "Author": "tesu",
+    "Name": "Penny Pincher 69",
+    "Punchline": "Copies the next value ending in 69 below cheapest offer.",
+    "Description": "Copies the next value ending in 69 below cheapest offer.",
+    "RepoUrl": "https://github.com/WalterStager/PennyPincher69",
+    "Tags": [ "marketboard", "undercut", "penny", "clipboard" ],
+    "ImageUrls": [],
+    "DalamudApiLevel": 10,
+    "IconUrl": "https://github.com/WalterStager/PennyPincher69/raw/master/images/icon.png",
+    "Changelog": "API version bump",
+    "DownloadLinkInstall": "https://github.com/WalterStager/PennyPincher69/releases/latest/download/latest.zip",
+    "DownloadLinkTesting": "https://github.com/WalterStager/PennyPincher69/releases/latest/download/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/WalterStager/PennyPincher69/releases/latest/download/latest.zip"
+}

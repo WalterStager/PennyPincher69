@@ -1,7 +1,7 @@
 ﻿using System;
 using Dalamud.Configuration;
 
-namespace PennyPincher
+namespace PennyPincher69
 {
     [Serializable]
     public class Configuration : IPluginConfiguration

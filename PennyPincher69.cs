@@ -20,9 +20,9 @@ using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using Num = System.Numerics;
 
-namespace PennyPincher
+namespace PennyPincher69
 {
-    public class PennyPincher : IDalamudPlugin
+    public class PennyPincher69 : IDalamudPlugin
     {
         [PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
         [PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
@@ -62,7 +62,7 @@ namespace PennyPincher
         [Signature("48 89 5C 24 ?? 57 48 83 EC 20 48 8B 0D ?? ?? ?? ?? 48 8B FA E8 ?? ?? ?? ?? 48 8B D8 48 85 C0 74 4A", DetourName = nameof(MarketBoardItemRequestStartDetour), UseFlags = SignatureUseFlags.Hook)]
         private Hook<MarketBoardItemRequestStart> _marketBoardItemRequestStartHook;
 
-        public PennyPincher()
+        public PennyPincher69()
         {
             var pluginConfig = PluginInterface.GetPluginConfig();
             if (pluginConfig is Configuration)
@@ -142,8 +142,17 @@ namespace PennyPincher
 
             if (i == currentOfferings.ItemListings.Count) return;
 
-            var price = currentOfferings.ItemListings[i].PricePerUnit - (currentOfferings.ItemListings[i].PricePerUnit % configuration.mod) - configuration.delta;
-            price -= (price % configuration.multiple);
+            // var price = currentOfferings.ItemListings[i].PricePerUnit - (currentOfferings.ItemListings[i].PricePerUnit % configuration.mod) - configuration.delta;
+            var price = 0;
+            if (currentOfferings.ItemListings[i].PricePerUnit % 100 >= 69)
+            {
+                price = (int)(currentOfferings.ItemListings[i].PricePerUnit - (currentOfferings.ItemListings[i].PricePerUnit % 100) + 69);
+            }
+            else
+            {
+                price = (int)(currentOfferings.ItemListings[i].PricePerUnit - (currentOfferings.ItemListings[i].PricePerUnit % 100) - 31);
+            }
+            // price -= (price % configuration.multiple);
             price = Math.Max(price, configuration.min);
 
             ImGui.SetClipboardText(price.ToString());
