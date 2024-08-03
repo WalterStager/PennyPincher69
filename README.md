@@ -3,7 +3,7 @@
 XIVLauncher plugin for simplifying "pennying" (undercutting current lowest offer by 1). But thats boring so instead this copies the next lowest value ending in 69.
 
 You can use this version by building it yourself or adding this url to your custom plugin repositories:
-```https://raw.githubusercontent.com/WalterStager/PennyPincher69/master/PennyPincher69.json```
+```https://raw.githubusercontent.com/WalterStager/PennyPincher69/master/repo.json```
 
 The usual workflow for this is the following:
 1. Open up the adjust price menu for the item you're undercutting
