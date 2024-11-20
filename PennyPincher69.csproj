@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/11.0.0">
   <PropertyGroup>
     <PackageProjectUrl>https://github.com/WalterStager/PennyPincher69</PackageProjectUrl>
-    <Version>1.8.0.3</Version>
+    <Version>1.8.1.3</Version>
   </PropertyGroup>
 </Project>
