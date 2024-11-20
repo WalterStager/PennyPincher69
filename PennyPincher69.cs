@@ -1,23 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
-using Dalamud.Data;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Command;
-using Dalamud.Game.Gui;
 using Dalamud.Game.Network.Structures;
 using Dalamud.Hooking;
 using Dalamud.IoC;
-using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Info;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using Num = System.Numerics;
 
 namespace PennyPincher69
@@ -52,42 +47,19 @@ namespace PennyPincher69
         private bool newRequest;
         private bool useHq;
         private bool itemHq;
-        [Signature("E8 ?? ?? ?? ?? 48 85 C0 74 14 83 7B 44 00")]
-        private GetFilePointer getFilePtr;
         [Signature("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 4C 89 74 24 ?? 49 8B F0 44 8B F2", DetourName = nameof(AddonRetainerSell_OnSetup))]
-        private Hook<AddonOnSetup> retainerSellSetup;
+        private Hook<AddonOnSetup>? retainerSellSetup;
         private unsafe delegate void* MarketBoardItemRequestStart(int* a1,int* a2,int* a3);
 
         //If the signature for these are ever lost, find the ProcessZonePacketDown signature in Dalamud and then find the relevant function based on the opcode.
         [Signature("48 89 5C 24 ?? 57 48 83 EC 20 48 8B 0D ?? ?? ?? ?? 48 8B FA E8 ?? ?? ?? ?? 48 8B D8 48 85 C0 74 4A", DetourName = nameof(MarketBoardItemRequestStartDetour), UseFlags = SignatureUseFlags.Hook)]
-        private Hook<MarketBoardItemRequestStart> _marketBoardItemRequestStartHook;
+        private Hook<MarketBoardItemRequestStart>? marketBoardItemRequestStart;
 
         public PennyPincher69()
         {
             var pluginConfig = PluginInterface.GetPluginConfig();
-            if (pluginConfig is Configuration)
-            {
-                configuration = (Configuration)pluginConfig;
-            }
-            else if (pluginConfig is OldConfiguration)
-            {
-                OldConfiguration oldConfig = (OldConfiguration)pluginConfig;
-                configuration = new Configuration
-                {
-                    alwaysOn = oldConfig.alwaysOn,
-                    delta = oldConfig.delta,
-                    hq = oldConfig.alwaysHq,
-                    min = oldConfig.min,
-                    mod = oldConfig.mod,
-                    multiple = oldConfig.multiple,
-                    undercutSelf = false,
-                    verbose = oldConfig.verbose
-                };
-            }
-            else
-            {
-                configuration = new Configuration();
-            }
+            if (pluginConfig is Configuration) configuration = (Configuration)pluginConfig;
+            else configuration = new Configuration();
             LoadConfig();
 
             MarketBoard.OfferingsReceived += MarketBoardOnOfferingsReceived;
@@ -107,18 +79,14 @@ namespace PennyPincher69
                 unsafe
                 {
                     GameInteropProvider.InitializeFromAttributes(this);
-                    _marketBoardItemRequestStartHook.Enable();
-
-                    var uiModule = (UIModule*)GameGui.GetUIModule();
-                    var infoModule = uiModule->GetInfoModule();
-                    var proxy = infoModule->GetInfoProxyById((InfoProxyId)11);
-                    retainerSellSetup.Enable();
+                    marketBoardItemRequestStart!.Enable();
+                    retainerSellSetup!.Enable();
                 }
             }
             catch (Exception e)
             {
-                getFilePtr = null;
-                _marketBoardItemRequestStartHook = null;
+                marketBoardItemRequestStart = null;
+                retainerSellSetup = null;
                 Log.Error(e.ToString());
             }
         }
@@ -126,21 +94,17 @@ namespace PennyPincher69
         private void MarketBoardOnOfferingsReceived(IMarketBoardCurrentOfferings currentOfferings)
         {
             if (!newRequest) return;
-
             if (!configuration.alwaysOn && !Retainer()) return;
 
-
+            var skipNq = useHq && items.Single(j => j.RowId == currentOfferings.ItemListings[0].ItemId).CanBeHq;
             var i = 0;
-            if (useHq && items.Single(j => j.RowId == currentOfferings.ItemListings[0].ItemId).CanBeHq)
+            while (i < currentOfferings.ItemListings.Count)
             {
-                while (i < currentOfferings.ItemListings.Count && (!currentOfferings.ItemListings[i].IsHq || (!configuration.undercutSelf && IsOwnRetainer(currentOfferings.ItemListings[i].RetainerId)))) i++;
+                if (!configuration.undercutSelf && IsOwnRetainer(currentOfferings.ItemListings[i].RetainerId)) i++;
+                else if (skipNq && !currentOfferings.ItemListings[i].IsHq) i++;
+                else break;
             }
-            else
-            {
-                while (i < currentOfferings.ItemListings.Count && (!configuration.undercutSelf && IsOwnRetainer(currentOfferings.ItemListings[i].RetainerId))) i++;
-            }
-
-            if (i == currentOfferings.ItemListings.Count) return;
+            if (i >= currentOfferings.ItemListings.Count) return;
 
             // var price = currentOfferings.ItemListings[i].PricePerUnit - (currentOfferings.ItemListings[i].PricePerUnit % configuration.mod) - configuration.delta;
             var price = 0;
@@ -156,30 +120,24 @@ namespace PennyPincher69
             price = Math.Max(price, configuration.min);
 
             ImGui.SetClipboardText(price.ToString());
-            if (configuration.verbose)
-            {
-                Chat.Print((useHq ? "[HQ] " : string.Empty) + $"{price:n0} copied to clipboard.");
-            }
+            if (configuration.verbose) Chat.Print((useHq ? "\uE03C" : string.Empty) + $"{price:n0} copied to clipboard.");
 
             newRequest = false;
         }
 
         private void ParseNetworkEvent(IntPtr dataPtr, PennyPincherPacketType packetType)
         {
-            // if (!Data.IsDataReady) return;
             if (packetType == PennyPincherPacketType.MarketBoardItemRequestStart)
             {
                 newRequest = true;
-
-
-                var shiftHeld = KeyState[VirtualKey.SHIFT];
-                useHq = shiftHeld ^ (configuration.hq && itemHq);
+                useHq = KeyState[VirtualKey.SHIFT] ^ (configuration.hq && itemHq);
             }
         }
 
         public void Dispose()
         {
             MarketBoard.OfferingsReceived -= MarketBoardOnOfferingsReceived;
+            marketBoardItemRequestStart?.Dispose();
             retainerSellSetup?.Dispose();
             PluginInterface.UiBuilder.Draw -= DrawWindow;
             PluginInterface.UiBuilder.OpenConfigUi -= OpenConfigUi;
@@ -201,10 +159,9 @@ namespace PennyPincher69
                 Log.Error(e, "Market board item request start detour crashed while parsing.");
             }
             
-            return _marketBoardItemRequestStartHook!.Original(a1,a2,a3);
+            return marketBoardItemRequestStart!.Original(a1, a2, a3);
         }
 
-        private delegate IntPtr GetFilePointer(byte index);
         private delegate IntPtr AddonOnSetup(IntPtr addon, uint a2, IntPtr dataPtr);
 
         public string Name => "Penny Pincher";
@@ -240,10 +197,10 @@ namespace PennyPincher69
             ImGui.InputInt("Minimum price to copy", ref configMin);
             
             ImGui.InputInt("Modulo*", ref configMod);
-            ImGui.TextWrapped("*Subtracts an additional [<lowest price> %% <modulo>] from the price before applying the delta (no effect if modulo is 1).\nThis can be used to make the last digits of your copied prices consistent.");
+            ImGui.TextWrapped("*Subtracts an additional [<lowest price> %% <modulo>] from the price BEFORE applying the delta (no effect if modulo is 1).\nThis can be used to make the last digits of your copied prices consistent.");
 
             ImGui.InputInt("Multiple†", ref configMultiple);
-            ImGui.TextWrapped("†Subtracts an additional [<lowest price> %% <multiple>] from the price after applying the delta (no effect if multiple is 1).\nThis can be used to undercut by multiples of an amount.");
+            ImGui.TextWrapped("†Subtracts an additional [<lowest price> %% <multiple>] from the price AFTER applying the delta (no effect if multiple is 1).\nThis can be used to undercut by multiples of an amount.");
 
             ImGui.Separator();
 
@@ -257,7 +214,6 @@ namespace PennyPincher69
             if (ImGui.Button("Save and Close Config"))
             {
                 SaveConfig();
-
                 _config = false;
             }
 
@@ -310,14 +266,14 @@ namespace PennyPincher69
             PluginInterface.SavePluginConfig(configuration);
         }
         
-        private bool Retainer()
+        private unsafe bool Retainer()
         {
-            return (getFilePtr != null) && Marshal.ReadInt64(getFilePtr(7), 0xB0) != 0;
+            return ItemOrderModule.Instance()->ActiveRetainerId != 0;
         }
 
         private unsafe IntPtr AddonRetainerSell_OnSetup(IntPtr addon, uint a2, IntPtr dataPtr)
         {
-            var result = retainerSellSetup.Original(addon, a2, dataPtr);
+            var result = retainerSellSetup!.Original(addon, a2, dataPtr);
 
             string nodeText = ((AddonRetainerSell*)addon)->ItemName->NodeText.ToString();
             itemHq = nodeText.Contains('\uE03C');
@@ -330,12 +286,8 @@ namespace PennyPincher69
             var retainerManager = RetainerManager.Instance();
             for (uint i = 0; i < retainerManager->GetRetainerCount(); ++i)
             {
-                if (retainerId == retainerManager->GetRetainerBySortedIndex(i)->RetainerId)
-                {
-                    return true;
-                }
+                if (retainerId == retainerManager->GetRetainerBySortedIndex(i)->RetainerId) return true;
             }
-
             return false;
         }
     }

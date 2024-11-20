@@ -6,7 +6,6 @@
     "RepoUrl": "https://github.com/WalterStager/PennyPincher69",
     "Tags": [ "marketboard", "undercut", "penny", "clipboard" ],
     "ImageUrls": [],
-    "DalamudApiLevel": 10,
     "IconUrl": "https://github.com/WalterStager/PennyPincher69/raw/master/images/icon.png",
     "Changelog": "API version bump"
 }
